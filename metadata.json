@@ -1,0 +1,6 @@
+{
+  "name": "SignalTOC",
+  "description": "KAVACH RFID Tag-TIN layout extraction, engineering validation, and Indian Railways Table of Control (TOC) generator.",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}
