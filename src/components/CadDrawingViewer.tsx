@@ -89,6 +89,14 @@ export const CadDrawingViewer: React.FC<CadDrawingViewerProps> = ({
   const [pdfBaseDims, setPdfBaseDims] = useState<{ width: number; height: number } | null>(null);
   const [isPdfRendering, setIsPdfRendering] = useState(false);
 
+  const pdfBaseDimsRef = useRef(pdfBaseDims);
+  pdfBaseDimsRef.current = pdfBaseDims;
+  const backgroundModeRef = useRef(backgroundMode);
+  backgroundModeRef.current = backgroundMode;
+  const pdfPageNumRef = useRef(pdfPageNum);
+  pdfPageNumRef.current = pdfPageNum;
+  const pdfRotationRef = useRef(pdfRotation);
+  pdfRotationRef.current = pdfRotation;
   const pdfZoomRef = useRef(pdfZoom);
   pdfZoomRef.current = pdfZoom;
   const pdfPanRef = useRef(pdfPan);
@@ -257,7 +265,7 @@ export const CadDrawingViewer: React.FC<CadDrawingViewerProps> = ({
     const sy = (canvasSize.height * 0.92) / extents.height;
     const safe = Math.min(sx, sy);
     if (Number.isFinite(safe) && safe > 0) {
-      setFitBaselineScale(safe);
+      setFitBaselineScale((prev) => (Math.abs(prev - safe) < 1e-12 ? prev : safe));
     }
   }, [dxfAnalysis, canvasSize.width, canvasSize.height]);
 
@@ -301,6 +309,9 @@ export const CadDrawingViewer: React.FC<CadDrawingViewerProps> = ({
     if (!canvas) return;
 
     const size = canvasSizeRef.current;
+    const bgMode = backgroundModeRef.current;
+    const pageNum = pdfPageNumRef.current;
+    const rotation = pdfRotationRef.current;
     const dpr = Math.min(2, window.devicePixelRatio || 1);
     const targetW = Math.max(1, Math.floor(size.width * dpr));
     const targetH = Math.max(1, Math.floor(size.height * dpr));
@@ -316,10 +327,10 @@ export const CadDrawingViewer: React.FC<CadDrawingViewerProps> = ({
 
     ctx.save();
     ctx.setTransform(1, 0, 0, 1, 0, 0);
-    ctx.fillStyle = backgroundMode === 'dark' ? '#0b1120' : '#ffffff';
+    ctx.fillStyle = bgMode === 'dark' ? '#0b1120' : '#ffffff';
     ctx.fillRect(0, 0, targetW, targetH);
 
-    const viewKey = `${pdfPageNum}|${pdfRotation}|${backgroundMode}|${size.width}x${size.height}|${pdfZoomRef.current.toFixed(4)}|${Math.round(pdfPanRef.current.x)},${Math.round(pdfPanRef.current.y)}`;
+    const viewKey = `${pageNum}|${rotation}|${bgMode}|${size.width}x${size.height}|${pdfZoomRef.current.toFixed(4)}|${Math.round(pdfPanRef.current.x)},${Math.round(pdfPanRef.current.y)}`;
     const crisp = pdfCrispCanvasRef.current;
     if (crisp && crisp.key === viewKey) {
       ctx.drawImage(crisp.canvas, 0, 0, targetW, targetH);
@@ -328,7 +339,7 @@ export const CadDrawingViewer: React.FC<CadDrawingViewerProps> = ({
     }
 
     const baseCanvas = pdfBaseCanvasRef.current;
-    const dims = pdfBaseDims;
+    const dims = pdfBaseDimsRef.current;
     if (baseCanvas && dims) {
       const fitScale = Math.min(
         (size.width * 0.94) / Math.max(1, dims.width),
@@ -351,7 +362,7 @@ export const CadDrawingViewer: React.FC<CadDrawingViewerProps> = ({
       );
     }
     ctx.restore();
-  }, [backgroundMode, pdfBaseDims, pdfPageNum, pdfRotation]);
+  }, []);
 
   // Buffer 1: Render cached full-page high-DPI offscreen PDF bitmap when page/rotation/theme changes
   useEffect(() => {
@@ -372,7 +383,11 @@ export const CadDrawingViewer: React.FC<CadDrawingViewerProps> = ({
       if (cancelled) return;
 
       const baseVp = page.getViewport({ scale: 1, rotation: pdfRotation });
-      setPdfBaseDims({ width: baseVp.width, height: baseVp.height });
+      const nextDims = { width: baseVp.width, height: baseVp.height };
+      pdfBaseDimsRef.current = nextDims;
+      setPdfBaseDims((prev) =>
+        prev && prev.width === nextDims.width && prev.height === nextDims.height ? prev : nextDims
+      );
 
       // Crisp offscreen cache (up to 3200px max side, safely under browser 4096px GPU limit)
       const maxDim = Math.max(1, baseVp.width, baseVp.height);
@@ -420,7 +435,7 @@ export const CadDrawingViewer: React.FC<CadDrawingViewerProps> = ({
         }
       }
     };
-  }, [isPdf, pdfDoc, pdfPageNum, pdfRotation, backgroundMode, paintPdfViewport]);
+  }, [isPdf, pdfDoc, pdfPageNum, pdfRotation, backgroundMode]);
 
   // Immediate 60fps composite + debounced crisp native vector pass when zoomed in
   useEffect(() => {
