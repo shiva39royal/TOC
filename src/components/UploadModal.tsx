@@ -1,5 +1,5 @@
 import React, { useRef, useState } from 'react';
-import { AlertCircle, CheckCircle2, FileCode2, Loader2, Upload, X } from 'lucide-react';
+import { AlertCircle, CheckCircle2, Cpu, FileCode2, KeyRound, Loader2, Sparkles, Upload, X } from 'lucide-react';
 import { runEngineeringValidation } from '../engine/validator';
 import type { StationProject, TocFormatMode } from '../types/signalling';
 import { renderPdfHighResCrops } from '../utils/pdfImageExtractor';
@@ -31,6 +31,13 @@ export const UploadModal: React.FC<UploadModalProps> = ({ isOpen, onClose, onPro
   const [queuedFiles, setQueuedFiles] = useState<QueuedCadFile[]>([]);
   const [tocFormat, setTocFormat] = useState<TocFormatMode>('CHITGIDDA_SELECTION');
   const [stationHint, setStationHint] = useState('');
+  const [apiKey, setApiKey] = useState(() => {
+    try {
+      return localStorage.getItem('signal_toc_gemini_api_key') || '';
+    } catch {
+      return '';
+    }
+  });
   const [isAnalyzing, setIsAnalyzing] = useState(false);
   const [stepLabel, setStepLabel] = useState('');
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
@@ -92,7 +99,11 @@ export const UploadModal: React.FC<UploadModalProps> = ({ isOpen, onClose, onPro
 
     setIsAnalyzing(true);
     setErrorMsg(null);
-    setStepLabel('1/3 Validating file format & decoding CAD/PDF layers and text...');
+    setStepLabel(
+      apiKey.trim()
+        ? '1/3 Decoding CAD layers and extracting station elements with Gemini AI...'
+        : '1/3 Decoding CAD layers and extracting vector elements offline...'
+    );
 
     try {
       const filesPayload = await Promise.all(
@@ -121,6 +132,7 @@ export const UploadModal: React.FC<UploadModalProps> = ({ isOpen, onClose, onPro
           files: filesPayload,
           tocFormatPreference: tocFormat,
           stationHint: stationHint.trim() || undefined,
+          apiKey: apiKey.trim() || undefined,
         }),
       });
 
@@ -226,6 +238,52 @@ export const UploadModal: React.FC<UploadModalProps> = ({ isOpen, onClose, onPro
               ))}
             </div>
           )}
+
+          {/* Optional Gemini API Key */}
+          <div className="p-3.5 bg-slate-50 border border-slate-200 rounded-lg">
+            <div className="flex items-center justify-between gap-2 mb-1.5">
+              <label htmlFor="gemini-api-key-input" className="text-xs font-semibold text-slate-800 flex items-center gap-1.5">
+                <KeyRound className="w-3.5 h-3.5 text-blue-700" aria-hidden="true" />
+                <span>Gemini API Key</span>
+                <span className="text-slate-400 font-normal text-[11px]">(Optional)</span>
+              </label>
+              <a
+                href="https://aistudio.google.com/apikey"
+                target="_blank"
+                rel="noopener noreferrer"
+                className="text-[11px] font-medium text-blue-600 hover:text-blue-800 hover:underline"
+              >
+                Get Free Key ↗
+              </a>
+            </div>
+            <input
+              id="gemini-api-key-input"
+              type="password"
+              value={apiKey}
+              onChange={(e) => {
+                const val = e.target.value;
+                setApiKey(val);
+                try {
+                  localStorage.setItem('signal_toc_gemini_api_key', val.trim());
+                } catch {}
+              }}
+              placeholder="AIzaSy... (Leave empty to process offline without API key)"
+              className="w-full px-3 py-2 text-xs border border-slate-300 rounded bg-white text-slate-900 placeholder:text-slate-400 focus:outline-none focus:border-blue-600 font-mono"
+            />
+            <div className="flex items-center gap-1.5 mt-2 text-[11px]">
+              {apiKey.trim() ? (
+                <div className="flex items-center gap-1.5 text-emerald-700 font-medium">
+                  <Sparkles className="w-3.5 h-3.5 text-emerald-600 shrink-0" aria-hidden="true" />
+                  <span>AI Mode Active: Visual multimodal layout analysis with Google Gemini</span>
+                </div>
+              ) : (
+                <div className="flex items-center gap-1.5 text-slate-600">
+                  <Cpu className="w-3.5 h-3.5 text-slate-500 shrink-0" aria-hidden="true" />
+                  <span>Offline Mode: Fast CAD/PDF vector heuristic extraction (No API key needed)</span>
+                </div>
+              )}
+            </div>
+          </div>
 
           {/* Format & Station Hint */}
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">

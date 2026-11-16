@@ -3,8 +3,11 @@ import {
   AlertCircle,
   ArrowLeft,
   ArrowRight,
+  Cpu,
   FileCode2,
+  KeyRound,
   Loader2,
+  Sparkles,
   Upload,
 } from 'lucide-react';
 import { runEngineeringValidation } from '../engine/validator';
@@ -29,6 +32,13 @@ export const TrackSchematicView: React.FC<TrackSchematicViewProps> = ({
   onProjectCreated,
 }) => {
   const fileInputRef = useRef<HTMLInputElement | null>(null);
+  const [apiKey, setApiKey] = useState(() => {
+    try {
+      return localStorage.getItem('signal_toc_gemini_api_key') || '';
+    } catch {
+      return '';
+    }
+  });
   const [isDraggingOver, setIsDraggingOver] = useState(false);
   const [isProcessing, setIsProcessing] = useState(false);
   const [processStep, setProcessStep] = useState('');
@@ -63,7 +73,11 @@ export const TrackSchematicView: React.FC<TrackSchematicViewProps> = ({
     }
 
     setIsProcessing(true);
-    setProcessStep(`1/3 Validating file format (${file.name}) & decoding layout...`);
+    setProcessStep(
+      apiKey.trim()
+        ? `1/3 Decoding ${file.name} & analyzing with Gemini AI...`
+        : `1/3 Decoding ${file.name} & extracting CAD vector elements offline...`
+    );
 
     try {
       const base64Data = await readFileAsBase64(file);
@@ -91,6 +105,7 @@ export const TrackSchematicView: React.FC<TrackSchematicViewProps> = ({
             },
           ],
           tocFormatPreference: 'CHITGIDDA_SELECTION',
+          apiKey: apiKey.trim() || undefined,
         }),
       });
 
@@ -184,6 +199,52 @@ export const TrackSchematicView: React.FC<TrackSchematicViewProps> = ({
             )}
           </div>
 
+          {/* Optional Gemini API Key */}
+          <div className="p-3.5 bg-slate-50 border border-slate-200 rounded-lg text-left">
+            <div className="flex items-center justify-between gap-2 mb-1.5">
+              <label htmlFor="schematic-api-key-input" className="text-xs font-semibold text-slate-800 flex items-center gap-1.5">
+                <KeyRound className="w-3.5 h-3.5 text-blue-700" aria-hidden="true" />
+                <span>Gemini API Key</span>
+                <span className="text-slate-400 font-normal text-[11px]">(Optional)</span>
+              </label>
+              <a
+                href="https://aistudio.google.com/apikey"
+                target="_blank"
+                rel="noopener noreferrer"
+                className="text-[11px] font-medium text-blue-600 hover:text-blue-800 hover:underline"
+              >
+                Get Free Key ↗
+              </a>
+            </div>
+            <input
+              id="schematic-api-key-input"
+              type="password"
+              value={apiKey}
+              onChange={(e) => {
+                const val = e.target.value;
+                setApiKey(val);
+                try {
+                  localStorage.setItem('signal_toc_gemini_api_key', val.trim());
+                } catch {}
+              }}
+              placeholder="AIzaSy... (Leave empty to process offline without API key)"
+              className="w-full px-3 py-2 text-xs border border-slate-300 rounded bg-white text-slate-900 placeholder:text-slate-400 focus:outline-none focus:border-blue-600 font-mono"
+            />
+            <div className="flex items-center gap-1.5 mt-2 text-[11px]">
+              {apiKey.trim() ? (
+                <div className="flex items-center gap-1.5 text-emerald-700 font-medium">
+                  <Sparkles className="w-3.5 h-3.5 text-emerald-600 shrink-0" aria-hidden="true" />
+                  <span>AI Mode: Visual multimodal layout analysis with Google Gemini</span>
+                </div>
+              ) : (
+                <div className="flex items-center gap-1.5 text-slate-600">
+                  <Cpu className="w-3.5 h-3.5 text-slate-500 shrink-0" aria-hidden="true" />
+                  <span>Offline Mode: Fast CAD/PDF vector heuristic extraction (Zero API key needed)</span>
+                </div>
+              )}
+            </div>
+          </div>
+
           {uploadError && (
             <div
               role="alert"
@@ -191,7 +252,7 @@ export const TrackSchematicView: React.FC<TrackSchematicViewProps> = ({
             >
               <AlertCircle className="w-4 h-4 shrink-0 mt-0.5 text-red-700" aria-hidden="true" />
               <div>
-                <div className="font-semibold">Invalid CAD File Format</div>
+                <div className="font-semibold">Processing Notice</div>
                 <div className="mt-0.5 leading-relaxed">{uploadError}</div>
               </div>
             </div>
