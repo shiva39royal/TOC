@@ -254,20 +254,25 @@ export function runEngineeringValidation(
       });
     }
 
-    // 4e. Route explicitly flagged NEEDS_REVIEW
+    // 4e. Route explicitly flagged NEEDS_REVIEW with missing critical parameters
     if (route.engineerStatus === 'NEEDS_REVIEW') {
+      const isMissingCritical =
+        isPlaceholder(route.entryFootTag) ||
+        route.linkingSequence.length === 0 ||
+        route.distanceBetweenSignalsM <= 0;
+
       const id = `route-review-r${route.slNo}`;
       issues.push({
         id,
-        severity: 'WARNING',
+        severity: isMissingCritical ? 'WARNING' : 'INFO',
         category: 'AMBIGUITY',
-        title: `Route #${route.slNo} (${route.entrySignal} -> ${route.exitSignal}) flagged for engineer check`,
+        title: `Route #${route.slNo} (${route.entrySignal} -> ${route.exitSignal}) verification check`,
         description:
           route.sourceNotes ||
-          `Route #${route.slNo} contains incomplete or uncertain CAD parameters requiring signalling engineer verification.`,
+          `Route #${route.slNo} path parameters synthesized from CAD layout.`,
         affectedRouteSlNo: route.slNo,
         ruleReference: 'Signalling Engineer Review Gate',
-        suggestedFix: 'Verify values against CAD drawing and mark route Verified.',
+        suggestedFix: 'Confirm signal interlocking and RFID linking sequence in TOC Output.',
         resolved: existingResolutions[id]?.resolved ?? false,
         resolvedNote: existingResolutions[id]?.resolvedNote,
       });

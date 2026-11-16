@@ -32,7 +32,7 @@ export async function renderPdfHighResCrops(base64Pdf: string): Promise<string[]
       ovCanvas.width = Math.max(1, Math.floor(overviewVp.width));
       ovCanvas.height = Math.max(1, Math.floor(overviewVp.height));
       await page.render({ canvas: ovCanvas, viewport: overviewVp, background: '#ffffff' }).promise;
-      crops.push(ovCanvas.toDataURL('image/png').split(',')[1]);
+      crops.push(ovCanvas.toDataURL('image/jpeg', 0.88).split(',')[1]);
 
       // 2) For wide landscape engineering drawings, slice 3 overlapping high-DPI yard zones
       // PLUS a dedicated zoomed Title Block (bottom-right) & Header Banner (top-center) crop
@@ -58,7 +58,7 @@ export async function renderPdfHighResCrops(base64Pdf: string): Promise<string[]
               tctx.fillStyle = '#ffffff';
               tctx.fillRect(0, 0, tile.width, tile.height);
               tctx.drawImage(fullCanvas, sx, sy, sw, sh, 0, 0, tile.width, tile.height);
-              crops.push(tile.toDataURL('image/png').split(',')[1]);
+              crops.push(tile.toDataURL('image/jpeg', 0.88).split(',')[1]);
             }
           };
 

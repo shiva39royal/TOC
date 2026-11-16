@@ -9,6 +9,7 @@ import { runEngineeringValidation } from './engine/validator';
 import type {
   RfidTag,
   SignalNode,
+  StationMetadata,
   StationProject,
   TocFormatMode,
   TocRouteRow,
@@ -136,6 +137,22 @@ export default function App() {
       {
         action: 'Edited TOC Route',
         target: `Route #${slNo}`,
+        details: `Updated ${Object.keys(patch).join(', ')}`,
+      }
+    );
+  };
+
+  const handleUpdateMetadata = (patch: Partial<StationMetadata>) => {
+    if (!activeProject) return;
+    updateProjectWithRevalidation(
+      activeProject.id,
+      (proj) => ({
+        ...proj,
+        metadata: { ...proj.metadata, ...patch },
+      }),
+      {
+        action: 'Updated Station Metadata',
+        target: patch.stationCode || activeProject.metadata.stationCode,
         details: `Updated ${Object.keys(patch).join(', ')}`,
       }
     );
@@ -359,6 +376,7 @@ export default function App() {
               setActiveTab('validation');
             }}
             onProjectCreated={handleProjectCreated}
+            onUpdateMetadata={handleUpdateMetadata}
           />
         )}
 

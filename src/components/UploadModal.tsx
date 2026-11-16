@@ -109,7 +109,8 @@ export const UploadModal: React.FC<UploadModalProps> = ({ isOpen, onClose, onPro
       const filesPayload = await Promise.all(
         queuedFiles.map(async (f) => {
           let supplementaryImages: string[] = [];
-          if (f.name.toLowerCase().endsWith('.pdf')) {
+          // Only generate visual crops when Gemini AI key is provided; offline heuristic parser only uses vector PDF data
+          if (f.name.toLowerCase().endsWith('.pdf') && apiKey.trim()) {
             try {
               supplementaryImages = await renderPdfHighResCrops(f.base64Data);
             } catch {

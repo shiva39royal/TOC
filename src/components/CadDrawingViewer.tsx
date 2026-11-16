@@ -14,10 +14,8 @@ import {
   Layers,
   Loader2,
   Maximize2,
-  Moon,
   RotateCw,
   Search,
-  Sun,
   ZoomIn,
   ZoomOut,
 } from 'lucide-react';
@@ -43,6 +41,10 @@ const ZOOM_PRESETS = [
   { label: '200%', value: 2 },
   { label: '400%', value: 4 },
   { label: '600%', value: 6 },
+  { label: '800%', value: 8 },
+  { label: '1000%', value: 10 },
+  { label: '1500%', value: 15 },
+  { label: '2000%', value: 20 },
 ];
 
 export const CadDrawingViewer: React.FC<CadDrawingViewerProps> = ({
@@ -79,11 +81,12 @@ export const CadDrawingViewer: React.FC<CadDrawingViewerProps> = ({
   const [searchQuery, setSearchQuery] = useState('');
   const [matchCursor, setMatchCursor] = useState(0);
 
-  // PDF viewer state
+  // PDF & CAD viewer state
   const [pdfDoc, setPdfDoc] = useState<pdfjsLib.PDFDocumentProxy | null>(null);
   const [pdfPageCount, setPdfPageCount] = useState(0);
   const [pdfPageNum, setPdfPageNum] = useState(1);
   const [pdfRotation, setPdfRotation] = useState<0 | 90 | 180 | 270>(0);
+  const [cadRotation, setCadRotation] = useState<0 | 90 | 180 | 270>(0);
   const [pdfZoom, setPdfZoom] = useState(1);
   const [pdfPan, setPdfPan] = useState({ x: 0, y: 0 });
   const [pdfBaseDims, setPdfBaseDims] = useState<{ width: number; height: number } | null>(null);
@@ -149,12 +152,22 @@ export const CadDrawingViewer: React.FC<CadDrawingViewerProps> = ({
     setMatchCursor(0);
     setPdfPageNum(1);
     setPdfRotation(0);
+    setCadRotation(0);
     setPdfZoom(1);
     setPdfPan({ x: 0, y: 0 });
     setPdfBaseDims(null);
     pdfBaseCanvasRef.current = null;
     pdfCrispCanvasRef.current = null;
   }, [sourceLayout]);
+
+  const currentRotation = isPdf ? pdfRotation : cadRotation;
+  const handleRotateLayout = useCallback(() => {
+    if (isPdf) {
+      setPdfRotation((r) => ((r + 90) % 360) as 0 | 90 | 180 | 270);
+    } else {
+      setCadRotation((r) => ((r + 90) % 360) as 0 | 90 | 180 | 270);
+    }
+  }, [isPdf]);
 
   // Measure viewport container reliably whenever sourceLayout becomes active
   useEffect(() => {
@@ -286,6 +299,12 @@ export const CadDrawingViewer: React.FC<CadDrawingViewerProps> = ({
     ctx.save();
     ctx.scale(dpr, dpr);
 
+    if (cadRotation !== 0) {
+      ctx.translate(canvasSize.width / 2, canvasSize.height / 2);
+      ctx.rotate((cadRotation * Math.PI) / 180);
+      ctx.translate(-canvasSize.width / 2, -canvasSize.height / 2);
+    }
+
     renderDxfToCanvas({
       dxf: dxfData,
       ctx,
@@ -300,7 +319,7 @@ export const CadDrawingViewer: React.FC<CadDrawingViewerProps> = ({
     });
 
     ctx.restore();
-  }, [isPdf, dxfData, canvasSize, camera, visibleLayers, backgroundMode, searchQuery]);
+  }, [isPdf, dxfData, canvasSize, camera, visibleLayers, backgroundMode, searchQuery, cadRotation]);
 
   // Paint PDF viewport synchronously from cached high-res bitmap or settled native vector snapshot
   const paintPdfViewport = useCallback(() => {
@@ -526,7 +545,7 @@ export const CadDrawingViewer: React.FC<CadDrawingViewerProps> = ({
       const dxCenter = mx - size.width / 2;
       const dyCenter = my - size.height / 2;
       const prevZoom = pdfZoomRef.current;
-      const nextZoom = Math.max(0.2, Math.min(16, prevZoom * factor));
+      const nextZoom = Math.max(0.2, Math.min(20, prevZoom * factor));
       const ratio = nextZoom / prevZoom;
       const prevPan = pdfPanRef.current;
       const nextPan = {
@@ -749,34 +768,6 @@ export const CadDrawingViewer: React.FC<CadDrawingViewerProps> = ({
             {sourceLayout.fileName}
           </span>
 
-          {/* Explicit 2-Option Background Selector: White | Dark */}
-          <div className="inline-flex items-center p-0.5 bg-slate-200/80 rounded border border-slate-300" role="group" aria-label="Canvas Background">
-            <button
-              type="button"
-              onClick={() => setBackgroundMode('white')}
-              className={`inline-flex items-center gap-1 px-2.5 py-1 text-xs font-medium rounded-xs transition-colors cursor-pointer whitespace-nowrap ${
-                backgroundMode === 'white'
-                  ? 'bg-white text-slate-900 shadow-xs'
-                  : 'text-slate-600 hover:text-slate-900'
-              }`}
-            >
-              <Sun className="w-3 h-3" aria-hidden="true" />
-              <span>White</span>
-            </button>
-            <button
-              type="button"
-              onClick={() => setBackgroundMode('dark')}
-              className={`inline-flex items-center gap-1 px-2.5 py-1 text-xs font-medium rounded-xs transition-colors cursor-pointer whitespace-nowrap ${
-                backgroundMode === 'dark'
-                  ? 'bg-slate-900 text-white shadow-xs'
-                  : 'text-slate-600 hover:text-slate-900'
-              }`}
-            >
-              <Moon className="w-3 h-3" aria-hidden="true" />
-              <span>Dark</span>
-            </button>
-          </div>
-
           {!isPdf && (
             <>
               <button
@@ -844,16 +835,6 @@ export const CadDrawingViewer: React.FC<CadDrawingViewerProps> = ({
                   </button>
                 </div>
               )}
-
-              <button
-                type="button"
-                onClick={() => setPdfRotation((r) => ((r + 90) % 360) as 0 | 90 | 180 | 270)}
-                className="inline-flex items-center gap-1 px-2 py-1 bg-white border border-slate-300 rounded hover:bg-slate-100 text-slate-700 cursor-pointer whitespace-nowrap"
-                title="Rotate 90°"
-              >
-                <RotateCw className="w-3.5 h-3.5" aria-hidden="true" />
-                <span>{pdfRotation}°</span>
-              </button>
             </>
           )}
         </div>
@@ -947,6 +928,17 @@ export const CadDrawingViewer: React.FC<CadDrawingViewerProps> = ({
           >
             <Maximize2 className="w-3.5 h-3.5" aria-hidden="true" />
             <span>Zoom to Fit</span>
+          </button>
+
+          <button
+            type="button"
+            onClick={handleRotateLayout}
+            className="inline-flex items-center gap-1.5 px-2.5 py-1 bg-white border border-slate-300 rounded hover:bg-slate-100 text-slate-800 font-medium cursor-pointer whitespace-nowrap shadow-xs"
+            title="Rotate layout 90° clockwise"
+            aria-label="Rotate layout 90° clockwise"
+          >
+            <RotateCw className="w-3.5 h-3.5 text-slate-600" aria-hidden="true" />
+            <span>Rotate Layout ({currentRotation}°)</span>
           </button>
 
           {!isPdf && (
